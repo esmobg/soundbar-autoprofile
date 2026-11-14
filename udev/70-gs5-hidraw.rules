@@ -1,0 +1,4 @@
+# Let logged-in users talk to the Creative Sound Blaster GS5 control interface without root.
+# Install:  sudo cp udev/70-gs5-hidraw.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger
+# then unplug and replug the soundbar's USB cable.
+KERNEL=="hidraw*", ATTRS{idVendor}=="041e", ATTRS{idProduct}=="329d", MODE="0660", TAG+="uaccess"

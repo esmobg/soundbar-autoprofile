@@ -1,0 +1,106 @@
+# soundbar-autoprofile configuration
+#
+# Profiles say WHAT to put on the soundbar; rules say WHEN. Rules are checked top to bottom and the first match
+# wins. If nothing matches, `default_profile` is used. Run `gs5 detect --watch` to see the values the rules
+# are matched against while you use your computer.
+#
+# Text conditions are case-insensitive regular expressions ("spotify|music" matches either word); a list means
+# "any of these". true/false conditions must be equal. `unless` excludes a rule even if `when` matches.
+#
+# Fields: media_playing, media_app, media_title, media_artist, media_type (music/video/""), foreground_app,
+#         foreground_title, fullscreen, mic_in_use, mic_apps
+
+device: gs5
+
+# seconds a new profile must stay chosen before switching (no flapping when you alt-tab for a moment)
+hold_seconds: 3
+# after media stops, keep treating it as playing for this long (pausing or skipping does not switch away)
+media_grace_seconds: 15
+# how often to look at what is happening, in seconds
+poll_seconds: 1
+# re-assert the lighting this often (the GS5 strip can go dark on standby); 0 = never
+keepalive_seconds: 120
+
+default_profile: default
+
+profiles:
+  # eq / superwide only take effect once that command is decoded for your device (docs/CAPTURE_GUIDE.md).
+  # rgb: one RRGGBB colour for the whole strip, or 7 colours left to right. brightness: 0-100.
+  # frames: raw hex frames sent as-is, e.g. commands you captured yourself.
+  music:
+    eq: music
+    rgb: "8a2be2"
+    brightness: 70
+  movie:
+    eq: movie
+    superwide: true
+    rgb: "ff5a00"
+    brightness: 30
+  work:
+    eq: voice
+    superwide: false
+    rgb: "4aa8ff"
+    brightness: 50
+  game:
+    eq: game
+    superwide: true
+    rgb: "ff0030"
+    brightness: 100
+  default:
+    eq: neutral
+    superwide: false
+    rgb: "ffffff"
+    brightness: 40
+
+rules:
+  - name: call or meeting (microphone in use)
+    profile: work
+    when:
+      mic_in_use: true
+
+  - name: full-screen game
+    profile: game
+    when:
+      fullscreen: true
+    unless:
+      foreground_app: &players_and_browsers
+        - "chrome|msedge|firefox|brave|opera|vivaldi|safari|arc"
+        - "vlc|mpv|mpc-hc|mpc-be|potplayer|kodi|plex|netflix|stremio|iina|quicktime|infuse|wmplayer|video.ui"
+        - "explorer|finder|code|powerpnt|keynote"
+
+  - name: video player or streaming service
+    profile: movie
+    when:
+      media_playing: true
+      media_app: "vlc|mpv|mpc|potplayer|kodi|plex|netflix|disney|primevideo|stremio|iina|tv\\.app|zunevideo"
+
+  - name: video playing (player reports video)
+    profile: movie
+    when:
+      media_type: video
+
+  - name: streaming site in the title
+    profile: movie
+    when:
+      media_playing: true
+      media_title: "netflix|disney\\+|hbo|prime video|apple tv|trailer|episode|\\bs\\d\\de\\d\\d\\b"
+
+  - name: full-screen browser video
+    profile: movie
+    when:
+      media_playing: true
+      fullscreen: true
+      foreground_app: *players_and_browsers
+
+  - name: music app or anything else playing
+    profile: music
+    when:
+      media_playing: true
+
+  - name: work apps
+    profile: work
+    when:
+      foreground_app:
+        - "code|devenv|idea|pycharm|webstorm|rider|clion|goland|sublime|notepad|cursor|zed"
+        - "winword|excel|powerpnt|outlook|onenote|teams|slack|zoom|notion|obsidian|figma"
+        - "terminal|^cmd|powershell|iterm|konsole|alacritty|kitty|claude"

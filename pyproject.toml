@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "soundbar-autoprofile"
+version = "0.1.0"
+description = "Automatically switch your soundbar's sound profile (EQ, SuperWide, RGB) to match what you are doing: music, movies, work, games. Starts with the Creative Sound Blaster GS5."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "soundbar-autoprofile contributors" }]
+keywords = ["soundbar", "creative", "sound blaster", "gs5", "equalizer", "hid", "automation"]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Topic :: Multimedia :: Sound/Audio",
+]
+dependencies = [
+  "hidapi>=0.14",
+  "PyYAML>=6.0",
+  "psutil>=5.9",
+  "winrt-Windows.Media.Control>=2.0; platform_system == 'Windows'",
+  "winrt-Windows.Foundation>=2.0; platform_system == 'Windows'",
+  "pyobjc-framework-Cocoa>=9.0; platform_system == 'Darwin'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.4"]
+
+[project.scripts]
+gs5 = "soundbar_autoprofile.cli:main"
+soundbar-autoprofile = "soundbar_autoprofile.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/esmobg/soundbar-autoprofile"
+Issues = "https://github.com/esmobg/soundbar-autoprofile/issues"
+
+[tool.setuptools.packages.find]
+include = ["soundbar_autoprofile*"]
+
+[tool.setuptools.package-data]
+soundbar_autoprofile = ["default_config.yaml"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["B027"]  # optional no-op hooks on the Device base class are intentional
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
