@@ -9,7 +9,9 @@ from dataclasses import asdict, dataclass, field
 @dataclass
 class Activity:
     media_playing: bool = False
-    media_app: str = ""          # e.g. "Spotify.exe", "chrome", "com.spotify.client"
+    # friendly name plus the raw player id, e.g. "Spotify (Spotify.exe)", "Firefox (308046B0AF4A39CB)",
+    # "Chrome", "Spotify (com.spotify.client)", "VLC"; unknown ids are kept as they are
+    media_app: str = ""
     media_title: str = ""
     media_artist: str = ""
     media_type: str = ""         # "music", "video" or "" when the player does not say

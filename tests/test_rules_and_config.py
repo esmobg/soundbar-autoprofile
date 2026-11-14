@@ -30,6 +30,22 @@ def test_default_config_is_valid():
     (dict(foreground_app="eldenring.exe", fullscreen=True, media_playing=True, media_app="Spotify.exe"), "game"),
     (dict(foreground_app="explorer.exe"), "default"),
     (dict(), "default"),
+    # normalised media_app names from the detectors ("Friendly (raw id)")
+    (dict(media_playing=True, media_app="Firefox (308046B0AF4A39CB)", media_title="Cat video - YouTube",
+          media_artist="Cats", foreground_app="firefox.exe", fullscreen=True), "movie"),
+    (dict(media_playing=True, media_app="Media Player (Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic)",
+          media_title="Song", media_artist="Band", media_type="music"), "music"),
+    (dict(media_playing=True, media_app="Films & TV (Microsoft.ZuneVideo_8wekyb3d8bbwe!Microsoft.ZuneVideo)",
+          media_title="holiday.mp4"), "movie"),
+    (dict(media_playing=True, media_app="Spotify (SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify)",
+          media_title="Song"), "music"),
+    (dict(media_playing=True, media_app="Netflix (4DF9E0F8.Netflix_mcm4njqhnhss8!Netflix.App)"), "movie"),
+    (dict(media_playing=True, media_app="Apple TV (com.apple.TV)", media_title="Film"), "movie"),
+    (dict(media_playing=True, media_app="Edge (MSEdge)", media_title="Podcast"), "music"),
+    (dict(media_playing=True, media_app="VLC", media_title="film.mkv", foreground_app="vlc"), "movie"),
+    (dict(media_playing=True, media_app="Firefox", media_title="Cat video", foreground_app="chromium",
+          fullscreen=True), "movie"),
+    (dict(foreground_app="totem", fullscreen=True), "default"),
 ])
 def test_default_rules(activity, expected):
     assert pick(**activity) == expected

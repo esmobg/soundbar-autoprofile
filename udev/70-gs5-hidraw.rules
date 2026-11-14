@@ -1,4 +1,7 @@
 # Let logged-in users talk to the Creative Sound Blaster GS5 control interface without root.
+# Covers both hidapi backends: the kernel hidraw node (hidapi's "hidraw" module, preferred) and the raw USB device
+# (/dev/bus/usb, used by hidapi's libusb "hid" module).
 # Install:  sudo cp udev/70-gs5-hidraw.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger
 # then unplug and replug the soundbar's USB cable.
-KERNEL=="hidraw*", ATTRS{idVendor}=="041e", ATTRS{idProduct}=="329d", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="041e", ATTRS{idProduct}=="329d", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="041e", ATTR{idProduct}=="329d", MODE="0660", TAG+="uaccess"

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/esmobg/soundbar-autoprofile/security/advisories/new
+    about: Please report security problems privately, not in a public issue.
+  - name: Troubleshooting and FAQ
+    url: https://github.com/esmobg/soundbar-autoprofile/blob/main/docs/TROUBLESHOOTING.md
+    about: Common problems (soundbar not found, Linux permissions, Sound Modes, flapping) and their fixes.

@@ -11,14 +11,28 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python: ["3.10", "3.13"]
+        python: ["3.10", "3.13", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+      # the tray extra is left out: pystray needs a display on Linux (release.yml tests it)
       - run: python -m pip install -e ".[dev]"
       - run: ruff check .
       - run: pytest -q
       - run: gs5 config check
+      - name: Detector smoke test
+        run: python -c "from soundbar_autoprofile.detect import get_detector as g; d=g(); print(d.read()); d.close()"
+      - name: Wheel installs and runs in a clean venv
+        shell: bash
+        run: |
+          python -m pip install build
+          python -m build --wheel --outdir dist
+          wheel="$PWD/$(ls dist/*.whl)"
+          cd "$RUNNER_TEMP"
+          python -m venv wheel-venv
+          if [ -d wheel-venv/Scripts ]; then bin=wheel-venv/Scripts; else bin=wheel-venv/bin; fi
+          "$bin/python" -m pip install "$wheel"
+          "$bin/gs5" config check

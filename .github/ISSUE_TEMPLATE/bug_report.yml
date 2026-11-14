@@ -1,0 +1,90 @@
+name: Bug report
+description: Something does not work as described (Можеш да пишеш и на български.)
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please check [Troubleshooting](https://github.com/esmobg/soundbar-autoprofile/blob/main/docs/TROUBLESHOOTING.md) first: the USB-C cable, Sound Mode names and Linux permissions cause most problems.
+
+        Security problems: please report them privately instead (see SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `gs5 --version`
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS
+        - Linux (X11)
+        - Linux (Wayland)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: os_details
+    attributes:
+      label: OS version and soundbar model
+      placeholder: "Windows 11 24H2, Sound Blaster GS5 firmware 1.2"
+  - type: dropdown
+    id: how
+    attributes:
+      label: How do you run it?
+      multiple: true
+      options:
+        - gs5 tray
+        - release app (.exe / .app / Linux binary)
+        - gs5 run
+        - gs5 autostart
+        - one-off commands (gs5 set, gs5 rgb, ...)
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: The soundbar is connected with a data-capable USB-C cable (not only Bluetooth).
+        - label: "Windows: Creative App is installed, and I did not change the Sound Mode in it by hand while automatic switching ran."
+  - type: input
+    id: creative_app
+    attributes:
+      label: Creative App version (Windows)
+      description: Needed for Sound Mode problems. Shown in Creative App's settings.
+      placeholder: "1.24.5"
+  - type: textarea
+    id: probe
+    attributes:
+      label: Output of `gs5 probe`
+      render: text
+  - type: textarea
+    id: detect
+    attributes:
+      label: Output of `gs5 detect --watch` (a few lines while the problem happens)
+      description: Remove titles you do not want to share.
+      render: text
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Relevant lines from soundbar-autoprofile.log (in the folder shown by `gs5 config path`), or the output of `gs5 run -v`. Remove titles you do not want to share.
+      render: text
+  - type: textarea
+    id: config
+    attributes:
+      label: Config changes
+      description: The parts of your config you changed, if any.
+      render: yaml

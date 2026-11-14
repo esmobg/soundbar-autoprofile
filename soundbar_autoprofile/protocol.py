@@ -49,10 +49,13 @@ class Frame:
         if len(raw) < 5 or raw[0] != REPORT_ID:
             return None
         n = raw[3] | raw[4] << 8
+        if raw[2] == OP_ACK:
+            n += 1  # ACKs declare 3 data bytes but carry 4: <op> 00 <cmd> <status>
         return cls(raw[0], raw[1], raw[2], raw[5 : 5 + n])
 
     def hex(self) -> str:
-        head = bytes([self.report_id, self.magic, self.op, len(self.data) & 0xFF, len(self.data) >> 8])
+        n = len(self.data) - (1 if self.op == OP_ACK and self.data else 0)  # the declared length, as on the wire
+        head = bytes([self.report_id, self.magic, self.op, n & 0xFF, n >> 8])
         return (head + self.data).hex(" ")
 
 

@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import difflib
 import os
 import sys
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
+from typing import Any
 
 import yaml
 
+from .devices import DRIVERS
 from .devices.base import Profile
 from .rules import Rule
 
@@ -45,27 +48,85 @@ class Config:
     profiles: dict[str, Profile] = field(default_factory=dict)
     rules: list[Rule] = field(default_factory=list)
     source: str = "built-in defaults"
+    warnings: list[str] = field(default_factory=list)   # non-fatal problems (e.g. unknown keys), for `config check`
+
+
+TOP_LEVEL_KEYS = {"device", "hold_seconds", "media_grace_seconds", "poll_seconds", "keepalive_seconds",
+                  "default_profile", "profiles", "rules"}
+
+
+def _seconds(raw: dict[str, Any], key: str, default: float, source: str, positive: bool = False) -> float:
+    value = raw.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{source}: {key} must be a number of seconds, got {value!r}")
+    if positive and value <= 0:
+        raise ValueError(f"{source}: {key} must be more than 0, got {value!r}")
+    if value < 0:
+        raise ValueError(f"{source}: {key} must be 0 or more, got {value!r}")
+    return float(value)
 
 
 def parse(text: str, source: str = "<string>") -> Config:
-    raw = yaml.safe_load(text) or {}
-    profiles = {name: Profile.from_dict(name, d) for name, d in (raw.get("profiles") or {}).items()}
-    rules = [Rule.from_dict(r) for r in (raw.get("rules") or [])]
+    """Parse and validate a config. Raises ValueError (naming ``source``) for anything the daemon could not use."""
+    raw = yaml.safe_load(text)
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"{source}: the config must be a YAML mapping (device:, profiles:, rules:, ...), "
+                         f"got {type(raw).__name__}")
+    warnings = []
+    for k in raw:
+        if k not in TOP_LEVEL_KEYS:
+            close = difflib.get_close_matches(str(k), TOP_LEVEL_KEYS, n=1)
+            hint = f"did you mean {close[0]!r}?" if close else f"valid: {', '.join(sorted(TOP_LEVEL_KEYS))}"
+            warnings.append(f"{source}: unknown setting {k!r} is ignored; {hint}")
+
+    device = raw.get("device", "gs5")
+    if device not in DRIVERS:
+        raise ValueError(f"{source}: unknown device {device!r}; supported: {', '.join(DRIVERS)}")
+    default_profile = raw.get("default_profile", "default")
+    if not isinstance(default_profile, str):
+        raise ValueError(f"{source}: default_profile must be a profile name, got {default_profile!r}")
+
+    raw_profiles = raw.get("profiles") or {}
+    if not isinstance(raw_profiles, dict):
+        raise ValueError(f"{source}: profiles must be a mapping of name -> settings")
+    raw_rules = raw.get("rules") or []
+    if not isinstance(raw_rules, list):
+        raise ValueError(f"{source}: rules must be a list")
+    try:
+        profiles = {str(name): Profile.from_dict(str(name), d) for name, d in raw_profiles.items()}
+        rules = [Rule.from_dict(r) for r in raw_rules]
+    except ValueError as e:
+        raise ValueError(f"{source}: {e}") from None
+    if device == "gs5":
+        from .devices.gs5 import SEGMENTS
+
+        for p in profiles.values():
+            if isinstance(p.rgb, list) and len(p.rgb) not in (1, SEGMENTS):
+                raise ValueError(f"{source}: profile {p.name!r}: rgb needs 1 colour or {SEGMENTS} (one per "
+                                 f"segment, left to right), got {len(p.rgb)}")
+
     cfg = Config(
-        device=raw.get("device", "gs5"),
-        hold_seconds=float(raw.get("hold_seconds", 3)),
-        media_grace_seconds=float(raw.get("media_grace_seconds", 15)),
-        poll_seconds=float(raw.get("poll_seconds", 1)),
-        keepalive_seconds=float(raw.get("keepalive_seconds", 120)),
-        default_profile=raw.get("default_profile", "default"),
+        device=device,
+        hold_seconds=_seconds(raw, "hold_seconds", 3, source),
+        media_grace_seconds=_seconds(raw, "media_grace_seconds", 15, source),
+        poll_seconds=_seconds(raw, "poll_seconds", 1, source, positive=True),
+        keepalive_seconds=_seconds(raw, "keepalive_seconds", 120, source),
+        default_profile=default_profile,
         profiles=profiles,
         rules=rules,
         source=source,
+        warnings=warnings,
     )
-    missing = {r.profile for r in rules} | {cfg.default_profile}
-    missing -= set(profiles)
+    defined = set(profiles)
+    if default_profile not in defined:
+        raise ValueError(f"{source}: default_profile refers to undefined profile {default_profile!r}; "
+                         f"defined: {', '.join(sorted(defined)) or 'none'}")
+    missing = {r.profile for r in rules} - defined
     if missing:
-        raise ValueError(f"{source}: rules refer to undefined profile(s): {', '.join(sorted(missing))}")
+        raise ValueError(f"{source}: rules refer to undefined profile(s): {', '.join(sorted(missing))}; "
+                         f"defined: {', '.join(sorted(defined)) or 'none'}")
     return cfg
 
 

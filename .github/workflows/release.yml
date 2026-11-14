@@ -1,0 +1,115 @@
+name: Release
+
+# Push a tag like v0.2.0 to build the tray app for Windows, macOS and Linux and attach it to a GitHub Release.
+# "Run workflow" (workflow_dispatch) only builds, and keeps the files as workflow artifacts.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: soundbar-autoprofile-windows-x64.exe
+            experimental: false
+          - os: macos-latest
+            asset: soundbar-autoprofile-macos-arm64.zip
+            experimental: true      # untested on hardware; do not block the Windows release
+          - os: ubuntu-22.04
+            asset: soundbar-autoprofile-linux-x64
+            experimental: true
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        if: runner.os != 'Linux'
+        with:
+          python-version: "3.12"
+
+      # Linux: the tray menu needs GTK + AppIndicator through PyGObject, which comes from the system Python.
+      - name: Linux build environment
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-venv python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1
+          /usr/bin/python3 -m venv --system-site-packages "$RUNNER_TEMP/venv"
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[dev,tray]" "pyinstaller>=6.10"
+          if [ "$RUNNER_OS" = Windows ]; then python -m pip install uiautomation; fi   # Creative App sound modes
+
+      - name: Test
+        run: |
+          ruff check .
+          pytest -q
+
+      - name: Build
+        run: pyinstaller --noconfirm --clean packaging/gs5.spec
+
+      - name: Smoke test and rename
+        env:
+          SOUNDBAR_AUTOPROFILE_CONFIG: ${{ runner.temp }}/no-config.yaml   # use the bundled default config
+        run: |
+          case "$RUNNER_OS" in
+            Windows)
+              ./dist/soundbar-autoprofile.exe --version
+              ./dist/soundbar-autoprofile.exe config check
+              mv dist/soundbar-autoprofile.exe "${{ matrix.asset }}"
+              ;;
+            macOS)
+              ./dist/soundbar-autoprofile.app/Contents/MacOS/soundbar-autoprofile --version
+              ./dist/soundbar-autoprofile.app/Contents/MacOS/soundbar-autoprofile config check
+              ditto -c -k --keepParent dist/soundbar-autoprofile.app "${{ matrix.asset }}"
+              ;;
+            Linux)
+              ./dist/soundbar-autoprofile --version
+              ./dist/soundbar-autoprofile config check
+              mv dist/soundbar-autoprofile "${{ matrix.asset }}"
+              chmod +x "${{ matrix.asset }}"
+              ;;
+          esac
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: Release files
+        run: |
+          cp udev/70-gs5-hidraw.rules assets/
+          ls -l assets
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: assets/*
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

@@ -11,7 +11,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-from .protocol import REPORT_ID
+from .protocol import OP_ACK, REPORT_ID, REPORT_SIZE
 
 LINKTYPE_USBPCAP = 249
 LINKTYPE_USB_LINUX = 189
@@ -93,30 +93,53 @@ def _tsresol(opts: bytes, e: str) -> float:
     return 1e-6
 
 
-def _usb_payload(linktype: int, pkt: bytes) -> tuple[str, bytes] | None:
-    """(direction, payload) of one USB packet, or None if it carries no data."""
+# USB transfer types (same numbering in USBPcap and usbmon)
+_XFER_INTERRUPT = 1
+_XFER_CONTROL = 2
+_HID_TRANSFERS = (_XFER_INTERRUPT, _XFER_CONTROL)  # iso (audio) and bulk never carry HID reports
+
+
+def _usb_payload(linktype: int, pkt: bytes) -> tuple[str, bytes, bool] | None:
+    """(direction, payload, is_control) of one HID (interrupt/control) USB packet, or None if it carries none."""
     if linktype == LINKTYPE_USBPCAP:
+        # u16 headerLen, u64 irpId, u32 status, u16 function, u8 info, u16 bus, u16 device, u8 endpoint,
+        # u8 transfer, u32 dataLength (+ u8 stage for control; headerLen covers it)
         if len(pkt) < 27:
             return None
         header_len = struct.unpack_from("<H", pkt, 0)[0]
-        endpoint = pkt[21]
-        return ("in" if endpoint & 0x80 else "out"), pkt[header_len:]
+        completion = bool(pkt[16] & 0x01)  # info bit 0: 1 = PDO -> FDO (completion, from the device)
+        endpoint, transfer = pkt[21], pkt[22]
+        if transfer not in _HID_TRANSFERS or header_len < 27:
+            return None
+        if transfer == _XFER_CONTROL:
+            return ("in" if completion else "out"), pkt[header_len:], True
+        endpoint_in = bool(endpoint & 0x80)
+        if endpoint_in != completion:  # OUT data rides on the submit, IN data on the completion
+            return None
+        return ("in" if endpoint_in else "out"), pkt[header_len:], False
     if linktype in (LINKTYPE_USB_LINUX, LINKTYPE_USB_LINUX_MMAPPED):
         header_len = 48 if linktype == LINKTYPE_USB_LINUX else 64
         if len(pkt) < header_len:
             return None
-        endpoint = pkt[10]
-        return ("in" if endpoint & 0x80 else "out"), pkt[header_len:]
+        transfer, endpoint = pkt[9], pkt[10]
+        if transfer not in _HID_TRANSFERS:
+            return None
+        return ("in" if endpoint & 0x80 else "out"), pkt[header_len:], transfer == _XFER_CONTROL
     return None
 
 
-def _creative_frame(payload: bytes) -> bytes | None:
+def _creative_frame(payload: bytes, control: bool = True) -> bytes | None:
     # interrupt transfers start with the report; control SET_REPORT may carry the 8-byte setup packet first
-    for start in (0, 8):
+    for start in (0, 8) if control else (0,):
         p = payload[start:]
-        if len(p) >= 5 and p[0] == REPORT_ID and p[1] in MAGICS:
-            n = p[3] | p[4] << 8
-            return bytes(p[: 5 + n]) if 5 + n <= len(p) else bytes(p).rstrip(b"\0")
+        if len(p) < 5 or p[0] != REPORT_ID or p[1] not in MAGICS:
+            continue
+        n = p[3] | p[4] << 8
+        if n < 1 or 5 + n > REPORT_SIZE:
+            continue
+        if p[2] == OP_ACK:  # "05 6a 02 03 00 <op> 00 <cmd> <status>": the status byte is not counted
+            n += 1
+        return bytes(p[: 5 + n]) if 5 + n <= len(p) else bytes(p).rstrip(b"\0")
     return None
 
 
@@ -128,8 +151,8 @@ def read_frames(path: str | Path) -> list[CapturedFrame]:
         got = _usb_payload(linktype, pkt)
         if got is None:
             continue
-        direction, payload = got
-        frame = _creative_frame(payload)
+        direction, payload, control = got
+        frame = _creative_frame(payload, control)
         if frame is None:
             continue
         if t0 is None:
@@ -138,14 +161,28 @@ def read_frames(path: str | Path) -> list[CapturedFrame]:
     return frames
 
 
-def bursts(frames: list[CapturedFrame], gap: float = 1.5, poll_threshold: int = 4,
-           keep_polling: bool = False) -> list[list[CapturedFrame]]:
-    """Group app->soundbar frames into bursts separated by quiet gaps. Frames repeated at least
-    ``poll_threshold`` times (the app's background polling) are dropped unless ``keep_polling``."""
+def polling_frames(frames: list[CapturedFrame], idle_seconds: float = 10.0, poll_threshold: int = 4) -> set[bytes]:
+    """App->soundbar frames that are background polling, not settings changes.
+
+    The capture guide has the user wait ``idle_seconds`` after opening the app before touching anything, so whatever
+    the app sends in that window is its own traffic (handshake and polling). Without frames in that window (or with
+    ``idle_seconds=0``), frames sent at least ``poll_threshold`` times count as polling instead."""
     outs = [f for f in frames if f.direction == "out"]
+    idle = {f.data for f in outs if f.time < idle_seconds}
+    if idle:
+        return idle
     counts = Counter(f.data for f in outs)
+    return {data for data, n in counts.items() if n >= poll_threshold}
+
+
+def bursts(frames: list[CapturedFrame], gap: float = 1.5, poll_threshold: int = 4,
+           keep_polling: bool = False, idle_seconds: float = 10.0) -> list[list[CapturedFrame]]:
+    """Group app->soundbar frames into bursts separated by quiet gaps. Polling (see :func:`polling_frames`) is
+    dropped unless ``keep_polling``."""
+    outs = [f for f in frames if f.direction == "out"]
     if not keep_polling:
-        outs = [f for f in outs if counts[f.data] < poll_threshold]
+        polling = polling_frames(frames, idle_seconds, poll_threshold)
+        outs = [f for f in outs if f.data not in polling]
     groups: list[list[CapturedFrame]] = []
     for f in outs:
         if groups and f.time - groups[-1][-1].time <= gap:

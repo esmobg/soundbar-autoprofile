@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .base import Device, DeviceError, DryRunDevice, Profile
+from .base import CommandError, Device, DeviceError, DryRunDevice, Profile
 
 DRIVERS = ("gs5",)
 
@@ -17,4 +17,4 @@ def open_device(name: str = "gs5", dry_run: bool = False, path: str | None = Non
     raise DeviceError(f"unknown device {name!r}; supported: {', '.join(DRIVERS)}")
 
 
-__all__ = ["Device", "DeviceError", "DryRunDevice", "Profile", "open_device", "DRIVERS"]
+__all__ = ["CommandError", "Device", "DeviceError", "DryRunDevice", "Profile", "open_device", "DRIVERS"]

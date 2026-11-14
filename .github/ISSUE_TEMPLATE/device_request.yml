@@ -1,0 +1,56 @@
+name: New device support
+description: Ask for support for another soundbar (Katana, Stage, GS3, another brand, ...)
+title: "Device support: "
+labels: ["device request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Each soundbar needs its own commands, recorded from the manufacturer's app. A request moves fastest when it comes with a USB capture: the [capture guide](https://github.com/esmobg/soundbar-autoprofile/blob/main/docs/CAPTURE_GUIDE.md) works for any USB device. If you can only capture over Bluetooth on Android, see [MOBILE.md](https://github.com/esmobg/soundbar-autoprofile/blob/main/docs/MOBILE.md).
+  - type: input
+    id: model
+    attributes:
+      label: Soundbar model
+      placeholder: "Creative Sound Blaster Katana V2X"
+    validations:
+      required: true
+  - type: input
+    id: usb_id
+    attributes:
+      label: USB vendor:product ID
+      description: "Windows: Device Manager > device > Properties > Details > Hardware IDs (VID_xxxx&PID_yyyy). Linux: `lsusb`. macOS: System Information > USB."
+      placeholder: "041e:3260"
+  - type: input
+    id: app
+    attributes:
+      label: Manufacturer app and version
+      placeholder: "Creative App 1.x on Windows"
+    validations:
+      required: true
+  - type: checkboxes
+    id: connections
+    attributes:
+      label: How can the manufacturer's app control it?
+      options:
+        - label: USB
+        - label: Bluetooth from a phone app
+        - label: Not sure
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings you would like profiles to switch
+      placeholder: "EQ presets (Music, Movie, ...), surround, lighting colour, dialog enhancement"
+    validations:
+      required: true
+  - type: textarea
+    id: capture
+    attributes:
+      label: Decoder output (optional, but very helpful)
+      description: Output of `gs5 decode-capture <file> --replies` plus the order of your actions. Do not attach the raw .pcapng; it can contain keystrokes. If the decoder finds no frames, say so.
+      render: text
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Can you help test?
+      options:
+        - label: I can run test builds and report back.

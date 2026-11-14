@@ -1,0 +1,88 @@
+name: Decoded commands (capture results)
+description: Share what you recorded with the capture guide (another soundbar, Bluetooth, new firmware)
+title: "Decoded commands: "
+labels: ["protocol"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for capturing! Follow the [capture guide](https://github.com/esmobg/soundbar-autoprofile/blob/main/docs/CAPTURE_GUIDE.md) first.
+
+        Note: on the Sound Blaster GS5, EQ, SuperWide and the other effects are not sent over USB on Windows (Creative's PC driver applies them), so a GS5 USB capture will not contain them. GS5 captures are still welcome for new firmware or Creative App versions, and for Bluetooth.
+
+        **Privacy:** paste the *decoder output*, not the raw `.pcapng` or Android `btsnoop_hci.log`. Raw captures can contain keystrokes or other devices' traffic.
+  - type: dropdown
+    id: device
+    attributes:
+      label: Soundbar
+      options:
+        - Sound Blaster GS5
+        - Other (write it below)
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware and app version
+      description: Firmware as shown in Creative App, and the Creative App version.
+      placeholder: "firmware 1.2.3, Creative App 1.x"
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Captured from
+      options:
+        - USB on Windows (USBPcap)
+        - USB on Linux (usbmon)
+        - Bluetooth on Android (HCI snoop log)
+    validations:
+      required: true
+  - type: dropdown
+    id: settings
+    attributes:
+      label: Settings covered
+      multiple: true
+      options:
+        - EQ presets / sound modes
+        - Custom EQ bands
+        - SuperWide
+        - Lighting
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Your actions, in order (notes.txt)
+      description: One line per action, with preset names exactly as the app shows them.
+      placeholder: |
+        1. EQ preset "Music"
+        2. EQ preset "Movie"
+        3. SuperWide on
+        4. SuperWide off
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Decoder output
+      description: "`gs5 decode-capture gs5-capture.pcapng --replies` (or the filtered tshark output for Bluetooth)"
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: mapping
+    attributes:
+      label: Your mapping (optional)
+      description: Which burst you think is which action, and anything you verified with `gs5 send` or a profile's `frames:`.
+      placeholder: "burst 3 = Music preset; tested with gs5 send, the app shows Music afterwards"
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirm
+      options:
+        - label: I shared decoder output only, not the raw capture file.
+          required: true
+        - label: I agree that these findings can be included in the project under the MIT License.
+          required: true

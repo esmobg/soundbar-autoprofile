@@ -24,31 +24,30 @@ keepalive_seconds: 120
 default_profile: default
 
 profiles:
-  # eq / superwide only take effect once that command is decoded for your device (docs/CAPTURE_GUIDE.md).
+  # sound_mode: a Sound Mode from Creative App (Windows). It carries the EQ, SuperWide, Crystalizer, Bass, Smart
+  #   Volume and Dialog+ settings. Use the name shown in the app: a factory one ("Music", "Movies", "Gaming",
+  #   "Effects Off", ...) or one you made yourself. `gs5 modes` lists them. Creative App is started minimized
+  #   when needed.
   # rgb: one RRGGBB colour for the whole strip, or 7 colours left to right. brightness: 0-100.
-  # frames: raw hex frames sent as-is, e.g. commands you captured yourself.
+  # frames: raw hex frames sent to the soundbar as-is (advanced).
   music:
-    eq: music
+    sound_mode: Music
     rgb: "8a2be2"
     brightness: 70
   movie:
-    eq: movie
-    superwide: true
+    sound_mode: Movies
     rgb: "ff5a00"
     brightness: 30
   work:
-    eq: voice
-    superwide: false
+    sound_mode: Effects Off
     rgb: "4aa8ff"
     brightness: 50
   game:
-    eq: game
-    superwide: true
+    sound_mode: Gaming
     rgb: "ff0030"
     brightness: 100
   default:
-    eq: neutral
-    superwide: false
+    sound_mode: Effects Off
     rgb: "ffffff"
     brightness: 40
 
@@ -64,15 +63,18 @@ rules:
       fullscreen: true
     unless:
       foreground_app: &players_and_browsers
-        - "chrome|msedge|firefox|brave|opera|vivaldi|safari|arc"
+        - "chrome|chromium|msedge|firefox|librewolf|waterfox|brave|opera|vivaldi|safari|arc|epiphany"
         - "vlc|mpv|mpc-hc|mpc-be|potplayer|kodi|plex|netflix|stremio|iina|quicktime|infuse|wmplayer|video.ui"
+        - "microsoft\\.media\\.player|totem|showtime|celluloid|haruna|smplayer|clapper|^tv$"
         - "explorer|finder|code|powerpnt|keynote"
 
   - name: video player or streaming service
     profile: movie
     when:
       media_playing: true
-      media_app: "vlc|mpv|mpc|potplayer|kodi|plex|netflix|disney|primevideo|stremio|iina|tv\\.app|zunevideo"
+      media_app:
+        - "vlc|mpv|mpc|potplayer|kodi|plex|netflix|disney|prime ?video|stremio|iina|zunevideo|films & tv"
+        - "apple tv|tv\\.app|com\\.apple\\.tv\\b|totem|showtime|celluloid|haruna|smplayer|clapper|dragonplayer"
 
   - name: video playing (player reports video)
     profile: movie
